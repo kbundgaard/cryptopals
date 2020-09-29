@@ -4,6 +4,7 @@ extern crate hex;
 use hex::{FromHex, ToHex};
 use std::ops::BitXor;
 
+#[derive(Clone)]
 struct Text(Vec<u8>);
 
 impl AsRef<[u8]> for Text {
@@ -64,12 +65,60 @@ impl<T: AsRef<[u8]>> ToBase64 for T {
 }
 
 fn main() {
-    println!();
-    println!("All the interesting stuff is happening in tests so far");
-    println!();
+    println!("\nAll the interesting stuff is happening in tests so far\n");
 
     // Stop compiler from complaining about unused imports that are only used in tests so far
-    let _ = Text::from_hex("1c0111001f010100061a024b53535009181c").unwrap().encode_hex::<String>();
+    let text = Text::from_hex("1c0111001f010100061a024b53535009181c").unwrap();
+    let _ = text.encode_hex::<String>();
+    let _ = score_text(&text);
+}
+
+fn score_text(text: &Text) -> Option<f64> {
+    text.0.iter()
+        .fold(Some(0.0), |acc, &x| match acc {
+                                        None => None,
+                                        Some(n) => match score_byte(x) {
+                                                        None => None,
+                                                        Some(m) => Some(m + n)
+                                                    }
+                                    })
+}
+
+/// Wikipedia and the internet archive to the rescue!
+/// Space is really important when looking at letter frequencies.
+/// Taken from https://web.archive.org/web/20170918020907/http://www.data-compression.com/english.html
+fn score_byte(byte: u8) -> Option<f64> {
+    match byte {
+        0..=31 | 33..=64 | 91..=96 | 123..=127 => Some(0.0),
+        32 => Some(0.1918182),
+        65 | 97 => Some(0.0651738),
+        66 | 98 => Some(0.0124248),
+        67 | 99 => Some(0.0217339),
+        68 | 100 => Some(0.0349835),
+        69 | 101 => Some(0.1041442),
+        70 | 102 => Some(0.0197881),
+        71 | 103 => Some(0.0158610),
+        72 | 104 => Some(0.0492888),
+        73 | 105 => Some(0.0558094),
+        74 | 106 => Some(0.0009033),
+        75 | 107 => Some(0.0050529),
+        76 | 108 => Some(0.0331490),
+        77 | 109 => Some(0.0202124),
+        78 | 110 => Some(0.0564513),
+        79 | 111 => Some(0.0596302),
+        80 | 112 => Some(0.0137645),
+        81 | 113 => Some(0.0008606),
+        82 | 114 => Some(0.0497563),
+        83 | 115 => Some(0.0515760),
+        84 | 116 => Some(0.0729357),
+        85 | 117 => Some(0.0225134),
+        86 | 118 => Some(0.0082903),
+        87 | 119 => Some(0.0171272),
+        88 | 120 => Some(0.0013692),
+        89 | 121 => Some(0.0145984),
+        90 | 122 => Some(0.0007836),
+        _ => None
+    }
 }
 
 /// Set 1: Challenge 1
@@ -89,4 +138,23 @@ fn challenge2() {
     let result = "746865206b696420646f6e277420706c6179";
     let xor = Text::from_hex(input1).unwrap() ^ Text::from_hex(input2).unwrap();
     assert_eq!(xor.encode_hex::<String>(), result)
+}
+
+/// Set 1: Challenge 3
+#[test]
+fn challenge3() {
+    let ciphertext = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736";
+    let plaintext = "Cooking MC's like a pound of bacon";
+    let text = Text::from_hex(ciphertext).unwrap();
+    let mut max = Some(0.0);
+    let mut best = text.0.iter().map(|x| *x as char).collect::<String>();
+    for n in 1..=255 {
+        let candidate = Text(text.0.iter().map(|x| *x ^ n).collect());
+        let score = score_text(&candidate);
+        if score > max {
+            max = score;
+            best = candidate.0.iter().map(|x| *x as char).collect::<String>();
+        }
+    }
+    assert_eq!(best, plaintext);
 }
